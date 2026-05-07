@@ -9,7 +9,7 @@ sys.path.append(BASE_DIR)
 from sklearn.model_selection import train_test_split
 from modelos.modelo_unet import crear_unet
 # IMPORTANTE: Quitamos el punto (.) para que cargue directamente desde la carpeta
-from dataset_loader import cargar_datos 
+from entrenamiento.dataset_loader import cargar_datos
 
 # Ruta relativa a la raíz del proyecto
 DATASET_PATH = os.path.join(BASE_DIR, "dataset")
@@ -40,8 +40,8 @@ def ejecutar_entrenamiento():
         X_train,
         y_train,
         validation_data=(X_test, y_test),
-        epochs=10,
-        batch_size=4
+        epochs=30,
+        batch_size=16
     )
 
     # 5. Guardado del modelo
