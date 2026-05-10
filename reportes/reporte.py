@@ -1,51 +1,49 @@
 import os
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib.pagesizes import letter
+from fpdf import FPDF
+import datetime
 
-def generar_reporte(resultado, nombre_archivo="reporte_diagnostico.pdf"):
-    # 1. Asegurar que la carpeta 'resultados' exista
-    carpeta_salida = "resultados"
-    if not os.path.exists(carpeta_salida):
-        os.makedirs(carpeta_salida)
+class ReporteRadiologico(FPDF):
+    def header(self):
+        # Fondo del encabezado
+        self.set_fill_color(11, 14, 20)
+        self.rect(0, 0, 210, 30, 'F')
+        self.set_y(10)
+        self.set_font('Arial', 'B', 15)
+        # CORRECCIÓN: set_text_color (con guiones) y valores individuales
+        self.set_text_color(76, 201, 240) 
+        self.cell(0, 10, 'SISTEMA DE ANALISIS DE NEUROIMAGEN', 0, 1, 'C')
+        
+    def footer(self):
+        self.set_y(-15)
+        self.set_font('Arial', 'I', 8)
+        self.set_text_color(128, 128, 128)
+        self.cell(0, 10, f'Pagina {self.page_no()}', 0, 0, 'C')
+
+def generar_reporte_final(datos, nombre_paciente, img_panel_path):
+    pdf = ReporteRadiologico()
+    pdf.add_page()
+    pdf.ln(25)
     
-    ruta_completa = os.path.join(carpeta_salida, nombre_archivo)
-
-    # 2. Configurar el documento
-    doc = SimpleDocTemplate(ruta_completa, pagesize=letter)
-    estilos = getSampleStyleSheet()
-    elementos = []
-
-    # 3. Contenido del reporte
-    titulo = Paragraph("Informe de Análisis de Tumor Cerebral", estilos['Title'])
-    elementos.append(titulo)
-    elementos.append(Spacer(1, 20))
-
-    # Formateamos el texto con etiquetas HTML simples de ReportLab
-    texto = f"""
-    <b>DETALLES DEL ANÁLISIS:</b><br/><br/>
-    <b>• Pixeles afectados:</b> {resultado['pixeles_tumor']}<br/>
-    <b>• Porcentaje de ocupación:</b> {resultado['porcentaje']}%<br/>
-    <b>• Nivel de riesgo:</b> {resultado['riesgo']}<br/>
-    <b>• Ubicación anatómica:</b> {resultado['ubicacion']}<br/><br/>
-    <i>Nota: Este informe es generado por una Inteligencia Artificial (U-Net) y debe ser validado por un especialista médico.</i>
-    """
-
-    elementos.append(Paragraph(texto, estilos['BodyText']))
-
-    # 4. Construir el PDF
-    try:
-        doc.build(elementos)
-        print(f" Reporte generado exitosamente en: {ruta_completa}")
-    except Exception as e:
-        print(f" Error al generar el PDF: {e}")
-
-if __name__ == "__main__":
-    # Prueba rápida con datos ficticios
-    datos_prueba = {
-        "pixeles_tumor": 1200,
-        "porcentaje": 7.3,
-        "riesgo": "Moderado",
-        "ubicacion": "Hemisferio Izquierdo - Zona Frontal"
-    }
-    generar_reporte(datos_prueba)
+    pdf.set_font('Arial', 'B', 12)
+    pdf.set_text_color(0, 0, 0)
+    pdf.cell(0, 10, '1. RESULTADOS DEL ANALISIS DIGITAL', 0, 1, 'L')
+    
+    pdf.set_font('Courier', '', 11)
+    # Sin emojis para mantener profesionalismo
+    resumen = (
+        f"ARCHIVO:       {nombre_paciente}\n"
+        f"LOCALIZACION:  {datos['ubicacion']}\n"
+        f"DIAMETRO:      {datos['diametro']}\n"
+        f"VOLUMEN:       {datos['volumen']}\n"
+        f"RIESGO:        {datos['riesgo']}"
+    )
+    pdf.multi_cell(0, 8, resumen)
+    pdf.ln(5)
+    
+    pdf.cell(0, 10, '2. EVIDENCIA GRAFICA (MRI + SEGMENTACION)', 0, 1, 'L')
+    # Ajustamos la imagen al ancho del PDF
+    pdf.image(img_panel_path, x=10, w=190)
+    
+    out_path = f"reportes/Reporte_{nombre_paciente.replace('.nii.gz', '')}.pdf"
+    pdf.output(out_path)
+    return out_path

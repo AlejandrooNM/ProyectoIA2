@@ -1,52 +1,30 @@
 import numpy as np
 
-def analizar_tumor(mascara):
-    # Aseguramos que la máscara sea 2D (por si viene como 128, 128, 1)
-    if mascara.ndim == 3:
-        mascara = np.squeeze(mascara)
+def obtener_diagnostico_clinico(mascara_2d):
+    # Escala BraTS: 1px approx 1.87mm
+    ESCALA_PIXEL_MM = 1.87
+    area_px = np.sum(mascara_2d > 0.5)
+    area_cm2 = (area_px * (ESCALA_PIXEL_MM**2)) / 100
 
-    # Contar píxeles que la IA marcó como tumor (valores cercanos a 1)
-    # Usamos un umbral de 0.5 para binarizar la salida de la sigmoide
-    pixeles_tumor = np.sum(mascara > 0.5)
+    volumen_cm3 = (area_cm2 ** 1.5) * 0.75
+    diametro_cm = np.sqrt(area_cm2 * 4 / np.pi)
 
-    # Calcular porcentaje sobre el área total (128x128 = 16384 píxeles)
-    porcentaje = (pixeles_tumor / (128 * 128)) * 100
-
-    # Clasificación de riesgo
-    if porcentaje == 0:
-        riesgo = "Nulo"
-    elif porcentaje < 5:
-        riesgo = "Bajo"
-    elif porcentaje < 15:
-        riesgo = "Moderado"
+    if diametro_cm < 2.0:
+        riesgo = "BAJO"
+    elif diametro_cm <= 5.0:
+        riesgo = "MODERADO"
     else:
-        riesgo = "Alto"
+        riesgo = "ALTO (CRITICO)"
 
-    ubicacion = detectar_ubicacion(mascara)
+    centro_x = mascara_2d.shape[1] // 2
+
+    # FIX: En neuroimagen radiológica la izquierda del paciente
+    # aparece a la derecha en pantalla, por eso invertimos la lógica
+    lado = "IZQUIERDO" if np.sum(mascara_2d[:, centro_x:]) > np.sum(mascara_2d[:, :centro_x]) else "DERECHO"
 
     return {
-        "pixeles_tumor": int(pixeles_tumor),
-        "porcentaje": round(porcentaje, 2),
+        "volumen": f"{volumen_cm3:.2f} cm3",
+        "ubicacion": f"HEMISFERIO {lado}" if area_px > 0 else "N/A",
         "riesgo": riesgo,
-        "ubicacion": ubicacion
+        "diametro": f"{diametro_cm:.2f} cm"
     }
-
-def detectar_ubicacion(mascara):
-    # Obtenemos las coordenadas de los píxeles del tumor (> 0.5)
-    coords = np.argwhere(mascara > 0.5)
-
-    if len(coords) == 0:
-        return "No detectado"
-
-    # Coordenada X promedio (Eje horizontal)
-    # coords[:, 1] son las columnas (X)
-    promedio_x = np.mean(coords[:, 1])
-
-    # Coordenada Y promedio (Eje vertical) para saber si es frontal o posterior
-    promedio_y = np.mean(coords[:, 0])
-
-    # Lógica de ubicación mejorada
-    lado = "Izquierdo" if promedio_x < 64 else "Derecho"
-    zona = "Frontal" if promedio_y < 64 else "Posterior"
-
-    return f"Hemisferio {lado} - Zona {zona}"
