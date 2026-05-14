@@ -18,7 +18,8 @@ def iniciar_sistema():
     try:
         # 1. Inferencia de la IA
         print("[1/3] Procesando imagen con red neuronal U-Net...")
-        original, mascara = predecir_tumor(entrada)
+        # FIX: predecir_tumor ahora devuelve 4 valores
+        original, mascara, mascara_prob, slices_mascara = predecir_tumor(entrada)
 
         mascara_limpia = mascara.squeeze()
         original_rot   = original
@@ -26,7 +27,8 @@ def iniciar_sistema():
 
         # 2. Analisis Clinico
         print("[2/3] Analizando resultados clinicos...")
-        datos = obtener_diagnostico_clinico(mascara_rot)
+        # FIX: se pasan mascara_prob y slices_mascara para volumen 3D y confianza
+        datos = obtener_diagnostico_clinico(mascara_rot, mascara_prob, slices_mascara)
 
         # 3. Visualizacion
         print("[3/3] Generando visualizacion...")
@@ -48,15 +50,27 @@ def iniciar_sistema():
         axes[1].set_xlim(axes[0].get_xlim())
         axes[1].set_ylim(axes[0].get_ylim())
 
-        # PANEL 3: Reporte
-        info_panel = (
-            "INFORME ANALITICO\n"
-            "---------------------------\n\n"
-            f"LOCALIZACION: {datos['ubicacion']}\n\n"
-            f"DIAMETRO:     {datos['diametro']}\n\n"
-            f"VOLUMEN:      {datos['volumen']}\n\n"
-            f"RIESGO:       {datos['riesgo']}"
-        )
+        # PANEL 3: Reporte — incluye confianza y slices si hay tumor
+        if datos.get("tumor_presente", True):
+            info_panel = (
+                "INFORME ANALITICO\n"
+                "---------------------------\n\n"
+                f"LOCALIZACION: {datos['ubicacion']}\n\n"
+                f"DIAMETRO:     {datos['diametro']}\n\n"
+                f"VOLUMEN:      {datos['volumen']}\n\n"
+                f"RIESGO:       {datos['riesgo']}\n\n"
+                f"CONFIANZA IA: {datos['confianza']}\n\n"
+                f"SLICES:       {datos['slices_con_tumor']}"
+            )
+        else:
+            info_panel = (
+                "INFORME ANALITICO\n"
+                "---------------------------\n\n"
+                "SIN TUMOR DETECTADO\n\n"
+                "No se encontro region\n"
+                "tumoral en el volumen\n"
+                "analizado."
+            )
 
         axes[2].text(0.1, 0.5, info_panel, color='white', family='monospace', fontsize=12,
                      linespacing=1.8, verticalalignment='center',
@@ -84,6 +98,7 @@ def iniciar_sistema():
 
     except Exception as e:
         print(f"\n[ERROR] Fallo en la ejecucion: {e}")
+        raise  # muestra el traceback completo para facilitar debugging
 
 if __name__ == "__main__":
     iniciar_sistema()
